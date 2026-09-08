@@ -225,9 +225,22 @@
 
   @media (min-width: 860px) {
     .app { grid-template-columns: 1.35fr 1fr; align-items: start; }
-    .summary, .interpret-btn, .interpretation { grid-column: 1 / -1; }
+    .summary, .interpret-btn, .interpretation, .hi-fio2-warning { grid-column: 1 / -1; }
     .panel { position: sticky; top: 16px; }
   }
+  /* ---- high FiO2 reliability warning ---- */
+  .hi-fio2-warning {
+    display: none;
+    background: #2a2013;
+    border: 1px solid var(--amber);
+    color: #f0c975;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .hi-fio2-warning.show { display: block; }
+
   /* ---- interpretation ---- */
   .interpret-btn {
     display: flex;
@@ -291,7 +304,7 @@
 </head>
 <body>
 <header>
-  <h1>D(A–a)O₂ 인터랙티브 <span class="version-badge">v1.0</span></h1>
+  <h1>D(A–a)O₂ 인터랙티브 <span class="version-badge">v1.2</span></h1>
 </header>
 
 <div class="app">
@@ -306,7 +319,12 @@
       <span class="chip">PAO₂ <b id="cPAO2">100</b></span>
       <span class="chip">PaO₂ <b id="cPaO2">90</b></span>
       <span class="chip">P/F <b id="cPF">429</b></span>
+      <span class="chip">정상컷오프 <b id="cCutoff">15</b></span>
     </div>
+  </div>
+
+  <div class="hi-fio2-warning" id="hiFio2Warning">
+    ⚠️ FiO₂가 높아 A-a 정상 컷오프 보정식의 신뢰도가 떨어집니다. 이 값은 참고치로만 활용하고, 고농도 산소·기계환기 상황에서는 P/F ratio나 션트 분율 등을 함께 고려하세요.
   </div>
 
   <button class="interpret-btn" id="interpretBtn" type="button">
@@ -361,6 +379,10 @@
   <div class="panel">
     <h2>변수 조절</h2>
     <div class="row">
+      <label>나이 <b id="vAge">40세</b></label>
+      <input id="age" type="range" min="18" max="100" step="1" value="40" />
+    </div>
+    <div class="row">
       <label>FiO₂ <b id="vFiO2">0.21</b></label>
       <input id="fiO2" type="range" min="0.21" max="1" step="0.01" value="0.21" />
     </div>
@@ -374,7 +396,7 @@
     </div>
     <div class="row">
       <label>PaCO₂ <b id="vPaCO2">40 mmHg</b></label>
-      <input id="paco2" type="range" min="10" max="90" step="1" value="40" />
+      <input id="paco2" type="range" min="10" max="200" step="1" value="40" />
     </div>
     <div class="row">
       <label>PaO₂ <b id="vPaO2">90 mmHg</b></label>
@@ -393,6 +415,12 @@
         <div><code>PiO₂ = FiO₂ × (PB − 47 mmHg)</code></div>
         <div><code>PAO₂ = PiO₂ − PaCO₂ / R</code></div>
         <div><code>D(A–a)O₂ = PAO₂ − PaO₂</code></div>
+        <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--line);">
+          <code>D(A–a)O₂ 정상컷오프 = (나이/4 + 4) + (FiO₂ − 0.21)/0.10 × 6</code>
+        </div>
+        <div style="margin-top:4px; color:var(--muted); font-size:11.5px;">
+          나이 보정 baseline + FiO₂ 10%p 상승당 약 5~7(중앙값 6) mmHg 보정. FiO₂가 높을수록(&gt;0.6) 이 보정식의 신뢰도는 낮아집니다.
+        </div>
       </div>
     </details>
   </div>
@@ -403,6 +431,7 @@
 const $ = (id) => document.getElementById(id);
 
 function calc() {
+  const age = parseFloat($("age").value);
   const fi = parseFloat($("fiO2").value);
   const pb = parseFloat($("pb").value);
   const r = parseFloat($("r").value);
@@ -411,7 +440,7 @@ function calc() {
   const pio2 = fi * (pb - 47);
   const drop = paco2 / r;
   const pao2A = pio2 - drop;
-  const maxPaO2 = Math.max(30, Math.floor(pao2A));
+  const maxPaO2 = Math.max(400, Math.floor(pao2A));
   const pao2Slider = $("pao2");
   pao2Slider.max = String(maxPaO2);
   let pao2 = parseFloat(pao2Slider.value);
@@ -424,6 +453,15 @@ function calc() {
   const pf = pao2 / fi;
   const f = (x) => Math.round(x);
 
+  // normal A-a cutoff: age-adjusted baseline + FiO2 correction
+  // baseline: age/4 + 4 (room-air, age-adjusted)
+  // FiO2 correction: +5~7 mmHg (midpoint 6) per 10% FiO2 above 0.21
+  const baseline = age / 4 + 4;
+  const fio2Correction = Math.max(0, fi - 0.21) / 0.10 * 6;
+  const normalCutoff = baseline + fio2Correction;
+  const highFio2 = fi > 0.6;
+
+  $("vAge").textContent = age.toFixed(0) + "세";
   $("vFiO2").textContent = fi.toFixed(2);
   $("vPB").textContent = pb.toFixed(0) + " mmHg";
   $("vR").textContent = r.toFixed(2);
@@ -444,10 +482,13 @@ function calc() {
   $("cPAO2").textContent = f(pao2A);
   $("cPaO2").textContent = f(pao2);
   $("cPF").textContent = f(pf);
+  $("cCutoff").textContent = f(normalCutoff);
+
+  $("hiFio2Warning").classList.toggle("show", highFio2);
 
   let note = "", cls = "ok";
-  if (aa <= 15) { note = "공기 호흡 정상 범위에 가까움"; cls = "ok"; }
-  else if (aa < 100) { note = "증가됨"; cls = "warn"; }
+  if (aa <= normalCutoff) { note = `정상 범위 (기준 ≈${f(normalCutoff)} mmHg)`; cls = "ok"; }
+  else if (aa < 100) { note = `보정 기준(≈${f(normalCutoff)} mmHg)보다 증가됨`; cls = "warn"; }
   else { note = "크게 증가 — 전달 장애 시사"; cls = "bad"; }
 
   const colorVar = cls === "ok" ? "#2dd4bf" : cls === "warn" ? "#f0b429" : "#f2665e";
@@ -458,17 +499,23 @@ function calc() {
   $("tAaNote").style.color = colorVar;
   $("mAa").className = cls;
 
-  state = { pao2, paco2, aa, pf, pao2A, fi };
+  state = { pao2, paco2, aa, pf, pao2A, fi, normalCutoff, highFio2 };
   if ($("interpretation").classList.contains("open")) renderInterpretation();
 }
 
 let state = {};
 
 function renderInterpretation() {
-  const { pao2, paco2, aa, pf, fi } = state;
-  const hypoxemic = pao2 < 80;
-  const aaNormal = aa <= 15;
+  const { paco2, aa, pf, fi, normalCutoff, highFio2 } = state;
+  // hypoxemia must scale with FiO2: a raw PaO2 threshold (e.g. <80) is only valid
+  // on room air. P/F ratio is PaO2 normalized by FiO2, so using it here means the
+  // threshold automatically rises with FiO2 (P/F 380 ≈ PaO2 80 on room air, but
+  // ≈ PaO2 380 on 100% O2 — correctly flagging a "room-air-normal" PaO2 as hypoxemic
+  // when FiO2 is high).
+  const hypoxemic = pf < 380;
+  const aaNormal = aa <= normalCutoff;
   const hyperCapnia = paco2 > 45;
+  const cutoffTxt = Math.round(normalCutoff);
 
   const pfGrade = (v) => {
     if (v >= 300) return null;
@@ -480,13 +527,13 @@ function renderInterpretation() {
   let headline = "", detail = "", causes = [];
 
   if (!hypoxemic) {
-    headline = "PaO₂가 정상 범위입니다.";
+    headline = "PaO₂가 현재 FiO₂ 대비 정상 범위입니다.";
     detail = "저산소혈증에 대한 원인 감별이 별도로 필요하지 않습니다.";
     if (!aaNormal) {
-      detail += " 다만 A-a 차이는 다소 증가되어 있어, 경한 가스교환 이상이 진행 중일 가능성은 염두에 둘 수 있습니다.";
+      detail += ` 다만 A-a 차이(현재 보정 기준 ≈${cutoffTxt} mmHg)는 다소 증가되어 있어, 경한 가스교환 이상이 진행 중일 가능성은 염두에 둘 수 있습니다.`;
     }
   } else if (aaNormal) {
-    headline = "A-a 차이는 정상 — 저환기(hypoventilation) 가능성이 높습니다.";
+    headline = `A-a 차이는 보정 기준(≈${cutoffTxt} mmHg) 이내 — 저환기(hypoventilation) 가능성이 높습니다.`;
     if (hyperCapnia) {
       detail = "PaCO₂도 함께 상승되어 있어(> 45 mmHg) 전형적인 저환기 패턴에 부합합니다. 폐포-모세혈관 사이 산소 교환 자체보다는, 환기량이 줄어드는 원인을 우선 고려하세요.";
       causes = ["진정제·마약성 진통제 과다", "신경근육질환 (예: 근무력증, 길랭-바레)", "흉벽 이상 (심한 흉곽기형, 비만저환기)", "기도 폐쇄 / COPD 급성악화로 인한 환기부전"];
@@ -496,7 +543,7 @@ function renderInterpretation() {
     }
     detail += " 이 경우 P/F 비는 저환기 자체로도 낮아질 수 있어, 산소화 장애의 중증도 지표로 쓰기에는 적합하지 않습니다.";
   } else {
-    headline = "A-a 차이가 증가 — 폐포-모세혈관 산소 교환 장애가 의심됩니다.";
+    headline = `A-a 차이가 보정 기준(≈${cutoffTxt} mmHg)보다 증가 — 폐포-모세혈관 산소 교환 장애가 의심됩니다.`;
     detail = "폐포기체식으로 계산한 PAO₂에 비해 실제 PaO₂가 예상보다 낮습니다. 환기 저하보다는 폐포와 모세혈관 사이의 가스 교환 자체에 문제가 있다는 뜻으로, 아래 원인들을 감별해야 합니다. 100% 산소를 투여했을 때 PaO₂가 충분히 정상화되면 환기-관류 불균형을, 그렇지 않으면 션트를 시사합니다.";
     causes = ["환기-관류(V/Q) 불균형 — 천식, COPD, 폐렴 등 (가장 흔함)", "확산 장애 — 간질성 폐질환, 폐부종 등", "우좌 션트 — 폐동정맥 기형, 심한 폐렴/무기폐, 심장 내 션트"];
 
@@ -507,6 +554,10 @@ function renderInterpretation() {
         detail += " 다만 P/F 비는 원래 산소 보충 상태에서의 중증도 분류(예: ARDS)에 쓰이는 지표라, 현재처럼 FiO₂가 실내 공기에 가까운 상태에서는 참고치로만 보는 것이 좋습니다.";
       }
     }
+  }
+
+  if (highFio2) {
+    detail += ` 참고: 현재 FiO₂가 높아(${(fi*100).toFixed(0)}%) A-a 정상 컷오프 보정식 자체의 신뢰도가 낮습니다. 이 판정은 참고용으로만 보고, P/F 비나 100% 산소 반응(션트 여부 확인) 등을 함께 고려하세요.`;
   }
 
   $("iHeadline").textContent = headline;
@@ -521,7 +572,7 @@ $("interpretBtn").addEventListener("click", () => {
   if (isOpen) renderInterpretation();
 });
 
-["fiO2","pb","r","paco2","pao2"].forEach(id => $(id).addEventListener("input", calc));
+["age","fiO2","pb","r","paco2","pao2"].forEach(id => $(id).addEventListener("input", calc));
 calc();
 </script>
 </body>
