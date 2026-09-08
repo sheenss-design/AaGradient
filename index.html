@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>D(A–a)O₂ 인터랙티브</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --card: #131a23;
+    --card-2: #0d131a;
+    --line: #232d3a;
+    --ink: #eef3f8;
+    --muted: #8a9bae;
+    --teal: #2dd4bf;
+    --amber: #f0b429;
+    --red: #f2665e;
+    --blue: #5fb4f2;
+    --orange: #fb923c;
+    --radius: 18px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Pretendard", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+  }
+  body { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+  header {
+    padding: 22px 20px 6px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  header h1 {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .version-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px 9px;
+    letter-spacing: 0;
+  }
+  header p { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+
+  .app {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 14px 16px 8px;
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+  }
+
+  /* ---- summary (the number that matters) ---- */
+  .summary {
+    background: linear-gradient(160deg, #14202180, var(--card));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 18px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .summary .label { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  .summary .value {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: color .15s ease;
+  }
+  .summary .value sub { font-size: 16px; font-weight: 600; margin-left: 2px; color: var(--muted); }
+  .summary .note { font-size: 12.5px; margin-top: 6px; font-weight: 600; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 46%; }
+
+  @media (max-width: 480px) {
+    .summary { flex-direction: column; align-items: flex-start; }
+    .chip-row { max-width: 100%; justify-content: flex-start; }
+  }
+
+  /* ---- diagram ---- */
+  .stage {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 10px;
+  }
+  svg { width: 100%; height: auto; display: block; }
+
+  /* ---- controls ---- */
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 18px 6px;
+  }
+  .panel h2 {
+    font-size: 13px;
+    text-transform: none;
+    color: var(--muted);
+    font-weight: 700;
+    margin: 0 0 14px;
+  }
+  .row { margin-bottom: 20px; }
+  label {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 14px;
+    color: var(--ink);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  label b { color: var(--teal); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 34px;
+    background: transparent;
+    margin: 0;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: #24303e;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    margin-top: -10px;
+    border-radius: 50%;
+    background: var(--teal);
+    border: 3px solid #0a0e14;
+    box-shadow: 0 0 0 1px var(--teal);
+  }
+  input[type=range]::-moz-range-track {
+    height: 6px;
+    border-radius: 3px;
+    background: #24303e;
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--teal);
+    border: 3px solid #0a0e14;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0 18px;
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  .toggle-row input { width: 20px; height: 20px; accent-color: var(--teal); }
+
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .m {
+    background: var(--card-2);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 11px 12px;
+  }
+  .m span { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .m strong { font-size: 19px; font-variant-numeric: tabular-nums; }
+  .ok { color: var(--teal); }
+  .warn { color: var(--amber); }
+  .bad { color: var(--red); }
+
+  details.eq {
+    margin: 16px 0 4px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--card-2);
+    border-radius: 12px;
+    border: 1px solid var(--line);
+  }
+  details.eq summary {
+    cursor: pointer;
+    padding: 11px 14px;
+    font-weight: 700;
+    color: var(--ink);
+    list-style: none;
+  }
+  details.eq summary::-webkit-details-marker { display: none; }
+  details.eq summary::after { content: "＋"; float: right; color: var(--muted); }
+  details.eq[open] summary::after { content: "－"; }
+  details.eq .body { padding: 0 14px 14px; line-height: 1.7; }
+  details.eq code { color: var(--teal); }
+
+  @media (min-width: 860px) {
+    .app { grid-template-columns: 1.35fr 1fr; align-items: start; }
+    .summary, .interpret-btn, .interpretation { grid-column: 1 / -1; }
+    .panel { position: sticky; top: 16px; }
+  }
+  /* ---- interpretation ---- */
+  .interpret-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 13px 16px;
+    background: var(--card);
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    border-radius: 999px;
+    font-size: 14.5px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+  .interpret-btn:active { background: #16332f; }
+  .interpret-btn .chev { transition: transform .2s ease; font-size: 12px; }
+  .interpret-btn.open .chev { transform: rotate(180deg); }
+
+  .interpretation {
+    display: none;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--teal);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .interpretation.open { display: block; }
+  .i-headline {
+    font-size: 15.5px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    line-height: 1.45;
+  }
+  .i-detail {
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .i-causes {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    font-size: 13.5px;
+    color: var(--ink);
+    line-height: 1.7;
+  }
+  .i-causes:empty { display: none; }
+  .i-causes li { margin-bottom: 2px; }
+  .i-caveat {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>D(A–a)O₂ 인터랙티브 <span class="version-badge">v1.0</span></h1>
+</header>
+
+<div class="app">
+
+  <div class="summary">
+    <div>
+      <div class="label">D(A–a)O₂</div>
+      <div class="value" id="tAa">10<sub>mmHg</sub></div>
+      <div class="note" id="tAaNote">공기 호흡 정상 범위에 가까움</div>
+    </div>
+    <div class="chip-row">
+      <span class="chip">PAO₂ <b id="cPAO2">100</b></span>
+      <span class="chip">PaO₂ <b id="cPaO2">90</b></span>
+      <span class="chip">P/F <b id="cPF">429</b></span>
+    </div>
+  </div>
+
+  <button class="interpret-btn" id="interpretBtn" type="button">
+    해석하기
+    <span class="chev" id="interpretChev">▾</span>
+  </button>
+
+  <div class="interpretation" id="interpretation">
+    <div class="i-headline" id="iHeadline"></div>
+    <div class="i-detail" id="iDetail"></div>
+    <ul class="i-causes" id="iCauses"></ul>
+    <div class="i-caveat">교육용 참고 자료이며, 실제 진단은 병력·신체 진찰 등 임상 소견과 함께 종합적으로 판단해야 합니다.</div>
+  </div>
+
+  <div class="stage">
+    <svg viewBox="0 0 340 556" id="fig" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <radialGradient id="alv" cx="42%" cy="38%">
+          <stop offset="0%" stop-color="#1d4d4a"/>
+          <stop offset="100%" stop-color="#12302e"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Stage 1: inspired air -->
+      <rect x="20" y="16" width="300" height="70" rx="16" fill="#101a22" stroke="#5fb4f2" stroke-width="3"/>
+      <text x="36" y="40" fill="#5fb4f2" font-size="12" font-weight="700">흡입 가스</text>
+      <text x="36" y="65" fill="#2dd4bf" font-size="21" font-weight="800" id="tPIO2">PiO₂ 150 mmHg</text>
+      <text x="304" y="65" text-anchor="end" fill="#e8c547" font-size="13" font-weight="700">PH₂O 47 mmHg</text>
+
+      <!-- connection: inspired gas flows down into the alveolus -->
+      <path d="M154 94 H186 V132 H204 L170 162 L136 132 H154 Z" fill="#5fb4f2"/>
+
+      <!-- Stage 2: alveolus -->
+      <circle cx="170" cy="266" r="100" fill="url(#alv)" stroke="#9eb0c2" stroke-width="6"/>
+      <text x="170" y="216" text-anchor="middle" fill="#e8eef6" font-size="14" font-weight="700">폐포</text>
+      <text x="170" y="250" text-anchor="middle" fill="#2dd4bf" font-size="21" font-weight="800" id="tPAO2">PAO₂ 100 mmHg</text>
+      <text x="170" y="298" text-anchor="middle" fill="#fb923c" font-size="21" font-weight="700" id="tPACO2">PACO₂ 40 mmHg</text>
+      <text x="170" y="326" text-anchor="middle" fill="#e8c547" font-size="13" font-weight="700">PH₂O 47 mmHg</text>
+
+      <!-- connection: gas exchange with the capillary, shown as two block arrows -->
+      <path d="M133 434 H157 V400 H170 L145 370 L120 400 H133 Z" fill="#fb923c"/>
+      <path d="M188 370 H212 V400 H225 L200 430 L175 400 H188 Z" fill="#fb923c"/>
+
+      <!-- Stage 3: capillary blood -->
+      <rect x="20" y="440" width="300" height="100" rx="16" fill="#101a22" stroke="#fb923c" stroke-width="3"/>
+      <text x="36" y="464" fill="#fb923c" font-size="12" font-weight="700">모세혈관 (동맥혈)</text>
+      <text x="36" y="494" fill="#38bdf8" font-size="21" font-weight="800" id="tPaO2">PaO₂ 90 mmHg</text>
+      <text x="36" y="522" fill="#fb923c" font-size="21" font-weight="700" id="tPaCO2">PaCO₂ 40 mmHg</text>
+    </svg>
+  </div>
+
+  <div class="panel">
+    <h2>변수 조절</h2>
+    <div class="row">
+      <label>FiO₂ <b id="vFiO2">0.21</b></label>
+      <input id="fiO2" type="range" min="0.21" max="1" step="0.01" value="0.21" />
+    </div>
+    <div class="row">
+      <label>대기압 PB <b id="vPB">760 mmHg</b></label>
+      <input id="pb" type="range" min="500" max="770" step="1" value="760" />
+    </div>
+    <div class="row">
+      <label>호흡교환비 R <b id="vR">0.80</b></label>
+      <input id="r" type="range" min="0.70" max="1.00" step="0.01" value="0.80" />
+    </div>
+    <div class="row">
+      <label>PaCO₂ <b id="vPaCO2">40 mmHg</b></label>
+      <input id="paco2" type="range" min="10" max="90" step="1" value="40" />
+    </div>
+    <div class="row">
+      <label>PaO₂ <b id="vPaO2">90 mmHg</b></label>
+      <input id="pao2" type="range" min="30" max="600" step="1" value="90" />
+    </div>
+    <div class="metrics">
+      <div class="m"><span>PiO₂</span><strong id="mPIO2">150 mmHg</strong></div>
+      <div class="m"><span>PAO₂</span><strong id="mPAO2">100 mmHg</strong></div>
+      <div class="m"><span>P/F</span><strong id="mPF">429</strong></div>
+      <div class="m"><span>A–a</span><strong id="mAa" class="ok">10 mmHg</strong></div>
+    </div>
+
+    <details class="eq">
+      <summary>계산식 보기</summary>
+      <div class="body">
+        <div><code>PiO₂ = FiO₂ × (PB − 47 mmHg)</code></div>
+        <div><code>PAO₂ = PiO₂ − PaCO₂ / R</code></div>
+        <div><code>D(A–a)O₂ = PAO₂ − PaO₂</code></div>
+      </div>
+    </details>
+  </div>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function calc() {
+  const fi = parseFloat($("fiO2").value);
+  const pb = parseFloat($("pb").value);
+  const r = parseFloat($("r").value);
+  const paco2 = parseFloat($("paco2").value);
+
+  const pio2 = fi * (pb - 47);
+  const drop = paco2 / r;
+  const pao2A = pio2 - drop;
+  const maxPaO2 = Math.max(30, Math.floor(pao2A));
+  const pao2Slider = $("pao2");
+  pao2Slider.max = String(maxPaO2);
+  let pao2 = parseFloat(pao2Slider.value);
+  if (pao2 > maxPaO2) {
+    pao2 = maxPaO2;
+    pao2Slider.value = String(maxPaO2);
+  }
+
+  const aa = Math.max(0, pao2A - pao2);
+  const pf = pao2 / fi;
+  const f = (x) => Math.round(x);
+
+  $("vFiO2").textContent = fi.toFixed(2);
+  $("vPB").textContent = pb.toFixed(0) + " mmHg";
+  $("vR").textContent = r.toFixed(2);
+  $("vPaCO2").textContent = paco2.toFixed(0) + " mmHg";
+  $("vPaO2").textContent = pao2.toFixed(0) + " mmHg";
+
+  $("tPIO2").textContent = "PiO₂ " + f(pio2) + " mmHg";
+  $("tPAO2").textContent = "PAO₂ " + f(pao2A) + " mmHg";
+  $("tPACO2").textContent = "PACO₂ " + f(paco2) + " mmHg";
+  $("tPaO2").textContent = "PaO₂ " + f(pao2) + " mmHg";
+  $("tPaCO2").textContent = "PaCO₂ " + f(paco2) + " mmHg";
+
+  $("mPIO2").textContent = f(pio2) + " mmHg";
+  $("mPAO2").textContent = f(pao2A) + " mmHg";
+  $("mPF").textContent = f(pf);
+  $("mAa").textContent = f(aa) + " mmHg";
+
+  $("cPAO2").textContent = f(pao2A);
+  $("cPaO2").textContent = f(pao2);
+  $("cPF").textContent = f(pf);
+
+  let note = "", cls = "ok";
+  if (aa <= 15) { note = "공기 호흡 정상 범위에 가까움"; cls = "ok"; }
+  else if (aa < 100) { note = "증가됨"; cls = "warn"; }
+  else { note = "크게 증가 — 전달 장애 시사"; cls = "bad"; }
+
+  const colorVar = cls === "ok" ? "#2dd4bf" : cls === "warn" ? "#f0b429" : "#f2665e";
+
+  $("tAa").innerHTML = f(aa) + "<sub>mmHg</sub>";
+  $("tAa").style.color = colorVar;
+  $("tAaNote").textContent = note;
+  $("tAaNote").style.color = colorVar;
+  $("mAa").className = cls;
+
+  state = { pao2, paco2, aa, pf, pao2A, fi };
+  if ($("interpretation").classList.contains("open")) renderInterpretation();
+}
+
+let state = {};
+
+function renderInterpretation() {
+  const { pao2, paco2, aa, pf, fi } = state;
+  const hypoxemic = pao2 < 80;
+  const aaNormal = aa <= 15;
+  const hyperCapnia = paco2 > 45;
+
+  const pfGrade = (v) => {
+    if (v >= 300) return null;
+    if (v >= 200) return "경도";
+    if (v >= 100) return "중등도";
+    return "중증";
+  };
+
+  let headline = "", detail = "", causes = [];
+
+  if (!hypoxemic) {
+    headline = "PaO₂가 정상 범위입니다.";
+    detail = "저산소혈증에 대한 원인 감별이 별도로 필요하지 않습니다.";
+    if (!aaNormal) {
+      detail += " 다만 A-a 차이는 다소 증가되어 있어, 경한 가스교환 이상이 진행 중일 가능성은 염두에 둘 수 있습니다.";
+    }
+  } else if (aaNormal) {
+    headline = "A-a 차이는 정상 — 저환기(hypoventilation) 가능성이 높습니다.";
+    if (hyperCapnia) {
+      detail = "PaCO₂도 함께 상승되어 있어(> 45 mmHg) 전형적인 저환기 패턴에 부합합니다. 폐포-모세혈관 사이 산소 교환 자체보다는, 환기량이 줄어드는 원인을 우선 고려하세요.";
+      causes = ["진정제·마약성 진통제 과다", "신경근육질환 (예: 근무력증, 길랭-바레)", "흉벽 이상 (심한 흉곽기형, 비만저환기)", "기도 폐쇄 / COPD 급성악화로 인한 환기부전"];
+    } else {
+      detail = "PaCO₂는 함께 상승하지 않았습니다. 저환기보다는 흡입 산소 분압 자체가 낮은 상황일 가능성을 같이 고려하세요.";
+      causes = ["고지대 등 낮은 대기압", "낮은 FiO₂ (예: 산소 공급 문제)"];
+    }
+    detail += " 이 경우 P/F 비는 저환기 자체로도 낮아질 수 있어, 산소화 장애의 중증도 지표로 쓰기에는 적합하지 않습니다.";
+  } else {
+    headline = "A-a 차이가 증가 — 폐포-모세혈관 산소 교환 장애가 의심됩니다.";
+    detail = "폐포기체식으로 계산한 PAO₂에 비해 실제 PaO₂가 예상보다 낮습니다. 환기 저하보다는 폐포와 모세혈관 사이의 가스 교환 자체에 문제가 있다는 뜻으로, 아래 원인들을 감별해야 합니다. 100% 산소를 투여했을 때 PaO₂가 충분히 정상화되면 환기-관류 불균형을, 그렇지 않으면 션트를 시사합니다.";
+    causes = ["환기-관류(V/Q) 불균형 — 천식, COPD, 폐렴 등 (가장 흔함)", "확산 장애 — 간질성 폐질환, 폐부종 등", "우좌 션트 — 폐동정맥 기형, 심한 폐렴/무기폐, 심장 내 션트"];
+
+    const grade = pfGrade(pf);
+    if (grade) {
+      detail += ` P/F 비는 ${Math.round(pf)}로 ${grade} 산소화 장애 범위에 해당합니다.`;
+      if (fi <= 0.25) {
+        detail += " 다만 P/F 비는 원래 산소 보충 상태에서의 중증도 분류(예: ARDS)에 쓰이는 지표라, 현재처럼 FiO₂가 실내 공기에 가까운 상태에서는 참고치로만 보는 것이 좋습니다.";
+      }
+    }
+  }
+
+  $("iHeadline").textContent = headline;
+  $("iDetail").textContent = detail;
+  $("iCauses").innerHTML = causes.map(c => `<li>${c}</li>`).join("");
+}
+
+$("interpretBtn").addEventListener("click", () => {
+  const panel = $("interpretation");
+  const isOpen = panel.classList.toggle("open");
+  $("interpretBtn").classList.toggle("open", isOpen);
+  if (isOpen) renderInterpretation();
+});
+
+["fiO2","pb","r","paco2","pao2"].forEach(id => $(id).addEventListener("input", calc));
+calc();
+</script>
+</body>
+</html>
